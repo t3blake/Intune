@@ -1,0 +1,50 @@
+param (
+    [string]$ProcessName,
+    [int]$MaxRunTimeMinutes,
+    [switch]$KillProcess,
+    [string]$LogFilePath
+)
+
+# Function to write output to console and log file
+function Write-Log {
+    param (
+        [string]$message
+    )
+    Write-Output $message
+    if ($LogFilePath) {
+        $message | Out-File -FilePath $LogFilePath -Append
+    }
+}
+
+# Get the current time
+$currentTime = Get-Date
+
+# Get the process information
+$process = Get-Process -Name $ProcessName -ErrorAction SilentlyContinue
+
+if ($process) {
+    foreach ($proc in $process) {
+        # Calculate the runtime of the process
+        $runTime = $currentTime - $proc.StartTime
+        $runTimeMinutes = $runTime.TotalMinutes
+
+        # Check if the process has been running longer than the specified time
+        if ($runTimeMinutes -gt $MaxRunTimeMinutes) {
+            Write-Log "Process $ProcessName (ID: $($proc.Id)) has been running for $([math]::Round($runTimeMinutes, 2)) minutes, which is longer than the allowed $MaxRunTimeMinutes minutes."
+
+            if ($KillProcess) {
+                # Kill the process
+                try {
+                    $proc.Kill()
+                    Write-Log "Process $ProcessName (ID: $($proc.Id)) has been terminated."
+                } catch {
+                    Write-Log "Failed to terminate process $ProcessName (ID: $($proc.Id)). Error: $_"
+                }
+            }
+        } else {
+            Write-Log "Process $ProcessName (ID: $($proc.Id)) is running within the allowed time limit."
+        }
+    }
+} else {
+    Write-Log "Process $ProcessName not found."
+}
